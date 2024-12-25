@@ -1,5 +1,5 @@
 # 注意：修改 default:    中的型号为你需要编译的型号，注意名称要与configs/templates/目录下的名字相同
-name: Build RM2100 Padavan-4.4
+name: Build_RM2100_Padavan
 
 on:
   workflow_dispatch:
@@ -13,10 +13,9 @@ on:
         default: 'yes'
         required: false
 env:
-  MHZ: 1200               # CPU超频频率 必须为20的倍数
   TNAME: ${{ github.event.inputs.production }}
-  REPOSITORY_URL: https://github.com/fightroad/Padavan.git
-         
+  REPOSITORY_URL: https://github.com/fightroad/padavan.git
+        
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -50,7 +49,7 @@ jobs:
         echo "DIR=/opt/rt-n56u" >> $GITHUB_ENV
         val1=$TNAME
         #val2=$(echo $val1 | sed 's/ /-/')
-        echo "NAME=${val1}_3.4_$VERSION" >> $GITHUB_ENV
+        echo "NAME=${val1}_4.4_$VERSION" >> $GITHUB_ENV
         echo "TAG=v$VERSION" >> $GITHUB_ENV
         ip addr        
     - name: Create a directory
@@ -63,16 +62,19 @@ jobs:
         TZ='Asia/Shanghai'  date  '+%Y-%m-%d %H:%M:%S' >> /opt/images/readme.txt        
     - name: Prepare environment
       run: |
-          sudo apt update
-          sudo apt install libtool-bin gperf python3-docutils autopoint gettext ccache              
-    - name: Clone source code
+        sudo apt update
+        sudo apt install libtool-bin gperf python3-docutils autopoint gettext ccache              
+    - name: Clone source code 
       run: |
         git clone --depth=1 $REPOSITORY_URL ${{ env.DIR }}
-        cd ${{ env.DIR }}
-        sed -i '/cp -f/d' Makefile
-        mkdir -p /opt/images/ 
+        cd ${{ env.DIR }}/toolchain-mipsel
+        sh dl_toolchain.sh
+        mkdir -p /opt/images/                        
     - name: Build Firmware
       run: |
+        cd ${{ env.DIR }}/trunk
+        for m in $TNAME;
+        do
         if [ ! -f configs/templates/$m.config ] ; then
         echo "configs/templates/$m.config not found "
         exit 0
@@ -98,7 +100,6 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SMARTDNS/d' .config #删除配置项SMARTDNS
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SRELAY/d' .config #删除配置项SRELAY
         sed -i '/CONFIG_FIRMWARE_INCLUDE_KUMASOCKS/d' .config #删除配置项KUMASOCKS
-        sed -i '/CONFIG_FIRMWARE_CPU_900MHZ/d' .config #删除配置项超频900MHz
         sed -i '/CONFIG_FIRMWARE_INCLUDE_SSOBFS/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_V2RAY/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_XRAY/d' .config
@@ -115,8 +116,10 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_WIREGUARD/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_ALDRIVER/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_MSD_LITE/d' .config
-        sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
-        sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_SQM/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_MTR/d' .config
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_OC/d' .config
+        sed -i '/CONFIG_FIRMWARE_MT7621_OC/d' .config
         sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
         ######################################################################
         #以下选项是定义你需要的功能（y=集成,n=忽略），重新写入到.config文件
@@ -127,7 +130,6 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_DNSFORWARDER=n" >> .config #DNSFORWARDER
         echo "CONFIG_FIRMWARE_INCLUDE_TUNSAFE=n" >> .config #TUNSAFE
         echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config #可以不集成
-        echo "CONFIG_FIRMWARE_CPU_900MHZ=n" >> .config #开启超频，仅MT7621可用
         ##科学上网## 
         echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config #科学上网插件，选择n后全部有关插件都不集成
         echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config # simple-obfs混淆插件
@@ -167,20 +169,22 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >>.config #wireguard 10k
         ##内网穿透服务##
         echo "CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n" >> .config #ALDRIVER  ~3m
+        echo "CONFIG_FIRMWARE_INCLUDE_SQM=y" >> .config #SQM
         echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=n" >> .config #MSD_LITE
-        echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=n" >> .config #IPERF3
-        echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=n" >> .config #NAPT66
+        echo "CONFIG_FIRMWARE_INCLUDE_MTR=n" >> .config #MTR
+        #CPU超频
+        echo "CONFIG_FIRMWARE_INCLUDE_OC=n" >> .config #CPU超频开关
+        echo 'CONFIG_FIRMWARE_MT7621_OC="0x392"' >> .config #此处填写对应频率的十六进制：1000Mhz=0x312 1100Mhz=0x362 1120Mhz=0x372 1200Mhz=0x3B2
         #########################################################################################
         # 自定义添加其它功能请参考源码configs/templates/目录下的config文件。按照上面的格式添加即可
         # 格式如下：
         # sed -i '/自定义项/d' .config
         # echo "自定义项=y" >> .config
         #########################################################################################
-        cd ${{ env.DIR }}
-        sudo make $m
-        cd ${{ env.DIR }}/trunk
+        sudo ./clear_tree_simple
+        sudo ./build_firmware_modify $m 0
         sudo mv -f images/*.trx /opt/images/
-        done
+        done        
     - name: Collect information
       if: true
       run: |
