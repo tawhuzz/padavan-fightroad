@@ -1,10 +1,9 @@
-TOPDIR          = ${CURDIR}
-SOURCE_DIR      = $(TOPDIR)/trunk
-TEMPLATE_DIR    = $(SOURCE_DIR)/configs/templates
-PRODUCTS        = $(shell ls $(TEMPLATE_DIR) | sed 's/.config//g')
-CONFIG          = $(SOURCE_DIR)/.config
-TOOLCHAIN      := mipsel-linux-musl
-TOOLCHAIN_ROOT := $(TOPDIR)/toolchain/toolchain-mipsel
+TOPDIR       = ${CURDIR}
+SOURCE_DIR   = $(TOPDIR)/trunk
+TEMPLATE_DIR = $(SOURCE_DIR)/configs/templates
+PRODUCTS     = $(shell ls $(TEMPLATE_DIR) | sed 's/.config//g')
+CONFIG       = $(SOURCE_DIR)/.config
+TOOLCHAIN    := mipsel-linux-musl
 
 all: build
 
@@ -28,7 +27,7 @@ clean:
 .PHONY: $(PRODUCTS)
 $(PRODUCTS):
 	cp -f $(TEMPLATE_DIR)/$(@).config $(CONFIG)
-	@echo "CONFIG_CROSS_COMPILER_ROOT=$(TOOLCHAIN_ROOT)" >> $(CONFIG)
+	@echo "CONFIG_CROSS_COMPILER_ROOT=$(TOPDIR)/toolchain/toolchain-mipsel" >> $(CONFIG)
 	@echo "CONFIG_TOOLCHAIN=$(TOOLCHAIN)" >> $(CONFIG)
 	@echo "CONFIG_CCACHE=y" >> $(CONFIG)
 	@make build
